@@ -12,6 +12,7 @@ import {
   Tooltip,
   Legend,
   CartesianGrid,
+  PieLabelRenderProps,
 } from "recharts";
 
 interface Sekolah {
@@ -33,10 +34,6 @@ interface PieDataItem {
 interface BarDataItem {
   jenis: string;
   jumlah: number;
-}
-
-interface TooltipPayload {
-  payload: PieDataItem;
 }
 
 export default function QuickCharts({ data }: QuickChartsProps) {
@@ -121,30 +118,32 @@ export default function QuickCharts({ data }: QuickChartsProps) {
   }
 
   // Custom label function for pie chart
-  const renderCustomizedLabel = ({
-    name,
-    percentage,
-  }: {
-    name: string;
-    percentage?: string;
-  }) => {
-    if (!percentage) return name;
+  const renderCustomizedLabel = (props: PieLabelRenderProps) => {
+    const { name } = props;
+    const percentage =
+      chartData.pie.find((item) => item.name === name)?.percentage || "0";
+    if (!name) return "";
     return `${name}: ${percentage}%`;
   };
 
   // Custom tooltip formatter for pie chart
   const pieTooltipFormatter = (
-    value: number,
-    name: string,
+    value: number | undefined,
+    name: string | undefined,
     props: { payload?: PieDataItem }
   ) => {
     const percentage = props.payload?.percentage || "0";
-    return [`${value} sekolah (${percentage}%)`, props.payload?.name || name];
+    const displayValue = value ?? 0;
+    return [
+      `${displayValue} sekolah (${percentage}%)`,
+      props.payload?.name || name || "",
+    ];
   };
 
   // Custom tooltip formatter for bar chart
-  const barTooltipFormatter = (value: number) => {
-    return [`${value} sekolah`, "Jumlah"];
+  const barTooltipFormatter = (value: number | undefined) => {
+    const displayValue = value ?? 0;
+    return [`${displayValue} sekolah`, "Jumlah"];
   };
 
   return (
@@ -198,10 +197,12 @@ export default function QuickCharts({ data }: QuickChartsProps) {
                     <div className="flex items-center">
                       <div
                         className="w-3 h-3 rounded-full mr-2"
-                        style={{
-                          backgroundColor:
-                            PIE_COLORS[index % PIE_COLORS.length],
-                        }}
+                        style={
+                          {
+                            backgroundColor:
+                              PIE_COLORS[index % PIE_COLORS.length],
+                          } as React.CSSProperties
+                        }
                       />
                       {item.name}
                     </div>

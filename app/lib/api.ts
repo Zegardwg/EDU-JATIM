@@ -115,7 +115,7 @@ export async function getAllSekolahData(options: FetchAllOptions = {}): Promise<
 
 // Helper function: fetch dengan retry
 async function fetchWithRetry(url: string, options: { retries: number; timeout: number }) {
-  let lastError: Error;
+  let lastError: Error = new Error('Failed to fetch after all retries');
   
   for (let i = 0; i <= options.retries; i++) {
     try {

@@ -23,9 +23,12 @@ import {
   getGeoJsonStyle,
   getRegionColor,
 } from "./utils/jawaTimurBoundaries";
+import type { GeoJsonFeature } from "./utils/jawaTimurBoundaries";
+import type { GeoJsonObject } from "geojson";
 
 // Fix untuk default icons
-delete (L.Icon.Default.prototype as any)._getIconUrl;
+delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)
+  ._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl:
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
@@ -34,6 +37,24 @@ L.Icon.Default.mergeOptions({
   shadowUrl:
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
 });
+
+// Type definitions
+interface School {
+  id: string;
+  sekolah: string;
+  bentuk: string;
+  lintang: string;
+  bujur: string;
+  alamat_jalan: string;
+  kabupaten_kota: string;
+}
+
+interface RegionStats {
+  total: number;
+  jenis: Record<string, number>;
+}
+
+// GeoJSON feature type is imported from utils
 
 // Komponen untuk batas wilayah Jawa Timur
 const JawaTimurBoundaries = memo(
@@ -45,36 +66,36 @@ const JawaTimurBoundaries = memo(
     onRegionClick?: (regionName: string) => void;
   }) => {
     const onEachFeature = useCallback(
-      (feature: any, layer: any) => {
+      (feature: GeoJsonFeature, layer: L.Layer) => {
         if (feature.properties) {
           const { name, code, level } = feature.properties;
           const isCity = level === "city";
 
           const popupContent = `
-        <div class="p-3 min-w-[180px]">
-          <div class="flex items-center gap-3 mb-2">
-            <div class="w-4 h-4 rounded" style="background-color: ${getRegionColor(
-              code
-            )}"></div>
-            <div>
-              <h3 class="font-bold text-sm text-gray-800">${name}</h3>
-              <div class="flex items-center gap-2">
-                <span class="text-xs px-2 py-0.5 rounded ${
-                  isCity
-                    ? "bg-purple-100 text-purple-800"
-                    : "bg-blue-100 text-blue-800"
-                }">
-                  ${isCity ? "Kota" : "Kabupaten"}
-                </span>
-                <span class="text-xs text-gray-500">${code}</span>
+            <div class="p-3 min-w-45">
+              <div class="flex items-center gap-3 mb-2">
+                <div class="w-4 h-4 rounded" style="background-color: ${getRegionColor(
+                  code
+                )}"></div>
+                <div>
+                  <h3 class="font-bold text-sm text-gray-800">${name}</h3>
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs px-2 py-0.5 rounded ${
+                      isCity
+                        ? "bg-purple-100 text-purple-800"
+                        : "bg-blue-100 text-blue-800"
+                    }">
+                      ${isCity ? "Kota" : "Kabupaten"}
+                    </span>
+                    <span class="text-xs text-gray-500">${code}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-3 pt-3 border-t border-gray-200">
+                <p class="text-xs text-gray-500">Klik untuk filter sekolah di wilayah ini</p>
               </div>
             </div>
-          </div>
-          <div class="mt-3 pt-3 border-t border-gray-200">
-            <p class="text-xs text-gray-500">Klik untuk filter sekolah di wilayah ini</p>
-          </div>
-        </div>
-      `;
+          `;
 
           layer.bindPopup(popupContent);
 
@@ -85,16 +106,18 @@ const JawaTimurBoundaries = memo(
                 onRegionClick(name);
               }
             },
-            mouseover: (e: any) => {
-              e.target.setStyle({
+            mouseover: (e: L.LeafletEvent) => {
+              const target = e.target as L.Path;
+              target.setStyle({
                 weight: 3,
                 fillOpacity: 0.2,
                 opacity: 1,
               });
-              e.target.bringToFront();
+              target.bringToFront();
             },
-            mouseout: (e: any) => {
-              e.target.setStyle(getGeoJsonStyle(feature));
+            mouseout: (e: L.LeafletEvent) => {
+              const target = e.target as L.Path;
+              target.setStyle(getGeoJsonStyle(feature));
             },
           });
         }
@@ -107,8 +130,8 @@ const JawaTimurBoundaries = memo(
     return (
       <GeoJSON
         key="jawa-timur-boundaries"
-        data={jawaTimurGeoJSON as any}
-        style={getGeoJsonStyle}
+        data={jawaTimurGeoJSON as GeoJsonObject}
+        style={(feature?: GeoJsonFeature) => getGeoJsonStyle(feature)}
         onEachFeature={onEachFeature}
       />
     );
@@ -117,8 +140,8 @@ const JawaTimurBoundaries = memo(
 
 JawaTimurBoundaries.displayName = "JawaTimurBoundaries";
 
-// Komponen Marker Sekolah (sama seperti sebelumnya)
-const SimpleSchoolMarker = memo(({ school }: { school: any }) => {
+// Komponen Marker Sekolah
+const SimpleSchoolMarker = memo(({ school }: { school: School }) => {
   const lat = parseFloat(school.lintang);
   const lng = parseFloat(school.bujur);
 
@@ -152,7 +175,7 @@ const SimpleSchoolMarker = memo(({ school }: { school: any }) => {
   return (
     <Marker position={[lat, lng]} icon={getSchoolIcon(school.bentuk)}>
       <Popup>
-        <div className="p-2 max-w-[200px]">
+        <div className="p-2 max-w-50">
           <h3 className="font-bold text-sm text-gray-800 mb-1">
             {school.sekolah}
           </h3>
@@ -185,7 +208,7 @@ const SimpleSchoolMarker = memo(({ school }: { school: any }) => {
 SimpleSchoolMarker.displayName = "SimpleSchoolMarker";
 
 // Custom cluster icon
-const createClusterCustomIcon = (cluster: any) => {
+const createClusterCustomIcon = (cluster: L.MarkerCluster) => {
   const count = cluster.getChildCount();
   const size = Math.min(25 + Math.log(count) * 8, 50);
 
@@ -210,10 +233,10 @@ const createClusterCustomIcon = (cluster: any) => {
 };
 
 // Optimized viewport filtering
-function useVisibleSchools(schools: any[], batchSize: number = 1000) {
-  const [visibleSchools, setVisibleSchools] = useState<any[]>([]);
-  const mapRef = useRef<any>(null);
-  const timeoutRef = useRef<NodeJS.Timeout>();
+function useVisibleSchools(schools: School[], batchSize: number = 1000) {
+  const [visibleSchools, setVisibleSchools] = useState<School[]>([]);
+  const mapRef = useRef<L.Map | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const updateVisibleSchools = useCallback(() => {
     if (!mapRef.current || schools.length === 0) return;
@@ -224,7 +247,7 @@ function useVisibleSchools(schools: any[], batchSize: number = 1000) {
 
     timeoutRef.current = setTimeout(() => {
       try {
-        const bounds = mapRef.current.getBounds();
+        const bounds = mapRef.current!.getBounds();
 
         const sampleSize = Math.min(schools.length, 5000);
         const sampledSchools =
@@ -270,8 +293,9 @@ function useVisibleSchools(schools: any[], batchSize: number = 1000) {
   };
 
   useEffect(() => {
-    updateVisibleSchools();
+    const timer = setTimeout(updateVisibleSchools, 100);
     return () => {
+      clearTimeout(timer);
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
@@ -283,7 +307,7 @@ function useVisibleSchools(schools: any[], batchSize: number = 1000) {
 
 // Main Map Component
 interface MapComponentProps {
-  schools: any[];
+  schools: School[];
 }
 
 function MapComponent({ schools }: MapComponentProps) {
@@ -294,20 +318,15 @@ function MapComponent({ schools }: MapComponentProps) {
   );
   const [showBoundaries, setShowBoundaries] = useState(true);
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
-  const [filteredSchools, setFilteredSchools] = useState<any[]>(schools);
-
-  // Filter sekolah berdasarkan wilayah yang dipilih
-  useEffect(() => {
+  const filteredSchools = useMemo(() => {
     if (selectedRegion) {
-      const filtered = schools.filter((school) =>
+      return schools.filter((school) =>
         school.kabupaten_kota
           ?.toLowerCase()
           .includes(selectedRegion.toLowerCase())
       );
-      setFilteredSchools(filtered);
-    } else {
-      setFilteredSchools(schools);
     }
+    return schools;
   }, [selectedRegion, schools]);
 
   const handleRegionClick = useCallback((regionName: string) => {
@@ -315,10 +334,7 @@ function MapComponent({ schools }: MapComponentProps) {
   }, []);
 
   const regionStats = useMemo(() => {
-    const stats: Record<
-      string,
-      { total: number; jenis: Record<string, number> }
-    > = {};
+    const stats: Record<string, RegionStats> = {};
 
     schools.forEach((school) => {
       const region = school.kabupaten_kota;
@@ -336,8 +352,15 @@ function MapComponent({ schools }: MapComponentProps) {
     return stats;
   }, [schools]);
 
+  // Filter visible schools based on selected region
+  const filteredVisibleSchools = useMemo(() => {
+    return visibleSchools.filter((school) =>
+      filteredSchools.some((fs) => fs.id === school.id)
+    );
+  }, [visibleSchools, filteredSchools]);
+
   console.log(
-    `🗺️ Rendering ${visibleSchools.length}/${filteredSchools.length} sekolah`
+    `🗺️ Rendering ${filteredVisibleSchools.length}/${filteredSchools.length} sekolah`
   );
 
   return (
@@ -374,20 +397,15 @@ function MapComponent({ schools }: MapComponentProps) {
         spiderfyOnMaxZoom={false}
         disableClusteringAtZoom={performanceMode ? 14 : 16}
         maxClusterRadius={performanceMode ? 60 : 40}
-        iconCreateFunction={createClusterCustomIcon}
-        chunkProgress={(processed, total) => {
-          console.log(`Loading markers: ${processed}/${total}`);
-        }}>
-        {visibleSchools
-          .filter((school) => filteredSchools.includes(school))
-          .map((school, index) => (
-            <SimpleSchoolMarker key={`${school.id}-${index}`} school={school} />
-          ))}
+        iconCreateFunction={createClusterCustomIcon}>
+        {filteredVisibleSchools.map((school, index) => (
+          <SimpleSchoolMarker key={`${school.id}-${index}`} school={school} />
+        ))}
       </MarkerClusterGroup>
 
       {/* Controls Panel */}
       <div className="leaflet-top leaflet-right">
-        <div className="leaflet-control leaflet-bar bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-4 m-2 space-y-4 min-w-[280px]">
+        <div className="leaflet-control leaflet-bar bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-4 m-2 space-y-4 min-w-70">
           {/* Header */}
           <div>
             <h3 className="text-sm font-semibold text-gray-800 mb-1">
@@ -503,7 +521,9 @@ function MapComponent({ schools }: MapComponentProps) {
               </div>
               <div className="flex justify-between">
                 <span>Terlihat di peta:</span>
-                <span className="font-medium">{visibleSchools.length}</span>
+                <span className="font-medium">
+                  {filteredVisibleSchools.length}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>Wilayah:</span>

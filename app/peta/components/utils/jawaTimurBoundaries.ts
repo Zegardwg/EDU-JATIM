@@ -1,3 +1,5 @@
+import type { Feature, Geometry } from 'geojson'
+
 // GeoJSON data untuk Jawa Timur
 export const jawaTimurGeoJSON = {
   "type": "FeatureCollection",
@@ -25513,14 +25515,7 @@ export const getRegionColor = (code: string): string => {
   return regionColorMap[code] || '#95A5A6'
 }
 
-interface GeoJsonFeature {
-  properties?: {
-    code?: string
-    level?: string
-    [key: string]: unknown
-  }
-  [key: string]: unknown
-}
+export type GeoJsonFeature = Feature<Geometry, any>
 
 export const getGeoJsonStyle = (feature?: GeoJsonFeature) => {
   const code = feature?.properties?.code
