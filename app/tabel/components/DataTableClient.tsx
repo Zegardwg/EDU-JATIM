@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation'; // TAMBAHKAN
 import {
   useReactTable,
   getCoreRowModel,
@@ -30,6 +31,9 @@ import {
   ExternalLink,
   X,
   AlertCircle,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
 } from 'lucide-react';
 import { Sekolah } from '../types/sekolah';
 
@@ -45,7 +49,6 @@ interface DataTableClientProps {
   pageSize?: number;
   onRowClick?: (sekolah: Sekolah) => void;
   onViewOnMap?: (sekolah: Sekolah) => void;
-  // PROPS BARU UNTUK FILTER
   activeFilters?: {
     kabupaten: string[];
     jenis: string[];
@@ -68,6 +71,8 @@ export default function DataTableClient({
   },
   onFilterChange,
 }: DataTableClientProps) {
+  const router = useRouter(); // TAMBAHKAN
+  
   // States
   const [data, setData] = useState<Sekolah[]>(initialData);
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -76,6 +81,7 @@ export default function DataTableClient({
   const [globalFilter, setGlobalFilter] = useState(activeFilters.searchQuery);
   const [selectedRow, setSelectedRow] = useState<string | null>(null);
   const [filteredCount, setFilteredCount] = useState(initialData.length);
+  const [copiedNPSN, setCopiedNPSN] = useState<string | null>(null); // TAMBAHKAN
   
   // Update data when initialData changes
   useEffect(() => {
@@ -124,6 +130,20 @@ export default function DataTableClient({
     
   }, [initialData, activeFilters]);
 
+  // Render sort icon function
+  const renderSortIcon = (columnId: string) => {
+    const column = table.getColumn(columnId);
+    if (!column?.getCanSort()) return null;
+    
+    const sortDirection = column.getIsSorted();
+    if (sortDirection === 'asc') {
+      return <ChevronUp size={14} className="text-blue-600" />;
+    } else if (sortDirection === 'desc') {
+      return <ChevronDown size={14} className="text-blue-600" />;
+    }
+    return <ChevronsUpDown size={14} className="text-gray-400" />;
+  };
+
   // Define columns
   const columns = useMemo<ColumnDef<Sekolah>[]>(
     () => [
@@ -135,13 +155,21 @@ export default function DataTableClient({
           return (
             <div className="min-w-[250px]">
               <div 
-                className="font-medium text-gray-900 hover:text-blue-600 cursor-pointer truncate"
-                onClick={() => handleRowClick(sekolah)}
-                title={sekolah.sekolah}
+                className="font-medium text-gray-900 hover:text-blue-600 cursor-pointer truncate group"
+                onClick={(e) => {
+                  const openInNewTab = e.ctrlKey || e.metaKey;
+                  if (openInNewTab) {
+                    window.open(`/tabel/${sekolah.npsn}`, '_blank');
+                  } else {
+                    router.push(`/tabel/${sekolah.npsn}`);
+                  }
+                }}
+                title="Klik untuk lihat detail • Ctrl+Klik untuk tab baru"
               >
                 {sekolah.sekolah}
+                <ExternalLink size={12} className="inline-block ml-1 opacity-0 group-hover:opacity-100 text-blue-500" />
               </div>
-              <div className="text-xs text-gray-500 truncate" title={sekolah.alamat_jalan}>
+              <div className="text-xs text-gray-500 truncate mt-1" title={sekolah.alamat_jalan}>
                 {sekolah.alamat_jalan}
               </div>
             </div>
@@ -154,20 +182,33 @@ export default function DataTableClient({
       {
         accessorKey: 'npsn',
         header: 'NPSN',
-        cell: ({ row }) => (
-          <div className="font-mono text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-gray-700">{row.getValue('npsn')}</span>
-              <button
-                onClick={() => handleCopyNPSN(row.getValue('npsn') as string)}
-                className="p-1 hover:bg-gray-100 rounded"
-                title="Salin NPSN"
-              >
-                <Copy size={12} className="text-gray-400 hover:text-gray-600" />
-              </button>
+        cell: ({ row }) => {
+          const npsn = row.getValue('npsn') as string;
+          return (
+            <div className="font-mono text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-700">{npsn}</span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCopyNPSN(npsn);
+                  }}
+                  className="p-1 hover:bg-gray-100 rounded transition-colors relative"
+                  title="Salin NPSN"
+                >
+                  <Copy size={12} className={`${
+                    copiedNPSN === npsn ? 'text-green-600' : 'text-gray-400 hover:text-gray-600'
+                  }`} />
+                  {copiedNPSN === npsn && (
+                    <span className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs bg-green-600 text-white px-1.5 py-0.5 rounded whitespace-nowrap">
+                      Disalin!
+                    </span>
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
-        ),
+          );
+        },
         enableSorting: true,
         size: 120,
       },
@@ -177,15 +218,15 @@ export default function DataTableClient({
         cell: ({ row }) => {
           const bentuk = row.getValue('bentuk') as string;
           const colorMap: Record<string, string> = {
-            SD: 'bg-blue-100 text-blue-800',
-            SMP: 'bg-green-100 text-green-800',
-            SMA: 'bg-purple-100 text-purple-800',
-            SMK: 'bg-orange-100 text-orange-800',
-            SLB: 'bg-red-100 text-red-800',
+            'SD': 'bg-blue-100 text-blue-800 border border-blue-200',
+            'SMP': 'bg-green-100 text-green-800 border border-green-200',
+            'SMA': 'bg-purple-100 text-purple-800 border border-purple-200',
+            'SMK': 'bg-orange-100 text-orange-800 border border-orange-200',
+            'SLB': 'bg-red-100 text-red-800 border border-red-200',
           };
           
           return (
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${colorMap[bentuk] || 'bg-gray-100 text-gray-800'}`}>
+            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${colorMap[bentuk] || 'bg-gray-100 text-gray-800 border border-gray-200'}`}>
               {bentuk}
             </span>
           );
@@ -200,10 +241,10 @@ export default function DataTableClient({
         cell: ({ row }) => {
           const status = row.getValue('status') as string;
           return (
-            <span className={`px-2 py-1 rounded text-xs font-medium ${
+            <span className={`px-2.5 py-1 rounded text-xs font-medium ${
               status === 'N' 
-                ? 'bg-green-100 text-green-800' 
-                : 'bg-yellow-100 text-yellow-800'
+                ? 'bg-green-100 text-green-800 border border-green-200' 
+                : 'bg-yellow-100 text-yellow-800 border border-yellow-200'
             }`}>
               {status === 'N' ? 'Negeri' : 'Swasta'}
             </span>
@@ -218,7 +259,7 @@ export default function DataTableClient({
         cell: ({ row }) => (
           <div className="text-sm">
             <div className="font-medium text-gray-800">{row.getValue('kabupaten_kota')}</div>
-            <div className="text-xs text-gray-500">{row.original.kecamatan}</div>
+            <div className="text-xs text-gray-500 mt-1">{row.original.kecamatan}</div>
           </div>
         ),
         enableSorting: true,
@@ -229,17 +270,37 @@ export default function DataTableClient({
         accessorKey: 'lintang',
         header: 'Koordinat',
         cell: ({ row }) => {
-          const lat = parseFloat(row.original.lintang);
-          const lng = parseFloat(row.original.bujur);
+          const sekolah = row.original;
+          const lat = parseFloat(sekolah.lintang);
+          const lng = parseFloat(sekolah.bujur);
           
           if (isNaN(lat) || isNaN(lng)) {
-            return <span className="text-xs text-gray-400">-</span>;
+            return (
+              <div className="text-xs text-gray-400 italic">
+                Tidak ada koordinat
+              </div>
+            );
           }
           
+          const hasValidCoords = !isNaN(lat) && !isNaN(lng);
+          
           return (
-            <div className="text-xs font-mono">
-              <div>{lat.toFixed(6)}</div>
-              <div>{lng.toFixed(6)}</div>
+            <div className="text-xs">
+              <div className="font-mono">{lat.toFixed(6)}</div>
+              <div className="font-mono">{lng.toFixed(6)}</div>
+              {hasValidCoords && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleViewOnMap(sekolah);
+                  }}
+                  className="mt-1 text-blue-600 hover:text-blue-800 text-xs flex items-center gap-1"
+                  title="Lihat di Google Maps"
+                >
+                  <MapPin size={10} />
+                  Lihat Peta
+                </button>
+              )}
             </div>
           );
         },
@@ -251,22 +312,38 @@ export default function DataTableClient({
         header: 'Aksi',
         cell: ({ row }) => {
           const sekolah = row.original;
+          const hasValidCoords = !isNaN(parseFloat(sekolah.lintang)) && !isNaN(parseFloat(sekolah.bujur));
+          
           return (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
               <button
-                onClick={() => handleViewOnMap(sekolah)}
-                className="p-1.5 hover:bg-blue-50 text-blue-600 rounded"
-                title="Lihat di Peta"
-              >
-                <MapPin size={16} />
-              </button>
-              <button
-                onClick={() => handleRowClick(sekolah)}
-                className="p-1.5 hover:bg-gray-100 text-gray-600 rounded"
-                title="Lihat Detail"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const openInNewTab = e.ctrlKey || e.metaKey;
+                  if (openInNewTab) {
+                    window.open(`/tabel/${sekolah.npsn}`, '_blank');
+                  } else {
+                    router.push(`/tabel/${sekolah.npsn}`);
+                  }
+                }}
+                className="p-2 hover:bg-blue-50 text-blue-600 rounded transition-colors"
+                title="Lihat Detail (Ctrl+Klik untuk tab baru)"
               >
                 <ExternalLink size={16} />
               </button>
+              
+              {hasValidCoords && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleViewOnMap(sekolah);
+                  }}
+                  className="p-2 hover:bg-green-50 text-green-600 rounded transition-colors"
+                  title="Lihat di Google Maps"
+                >
+                  <MapPin size={16} />
+                </button>
+              )}
             </div>
           );
         },
@@ -274,7 +351,7 @@ export default function DataTableClient({
         size: 100,
       },
     ],
-    []
+    [copiedNPSN, router]
   );
 
   // Initialize table
@@ -307,13 +384,21 @@ export default function DataTableClient({
 
   // Event Handlers
   const handleRowClick = useCallback((sekolah: Sekolah) => {
-    setSelectedRow(sekolah.id);
-    if (onRowClick) {
-      onRowClick(sekolah);
-    }
-  }, [onRowClick]);
+    // Navigasi ke halaman detail dengan NPSN
+    router.push(`/tabel/${sekolah.npsn}`);
+  }, [router]);
 
   const handleViewOnMap = useCallback((sekolah: Sekolah) => {
+    const lat = parseFloat(sekolah.lintang);
+    const lng = parseFloat(sekolah.bujur);
+    
+    if (!isNaN(lat) && !isNaN(lng)) {
+      window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank');
+    } else {
+      // Fallback ke pencarian alamat
+      window.open(`https://www.google.com/maps/search/${encodeURIComponent(sekolah.alamat_jalan + ', ' + sekolah.kabupaten_kota)}`, '_blank');
+    }
+    
     if (onViewOnMap) {
       onViewOnMap(sekolah);
     }
@@ -322,8 +407,8 @@ export default function DataTableClient({
   const handleCopyNPSN = useCallback(async (npsn: string) => {
     try {
       await navigator.clipboard.writeText(npsn);
-      // Bisa tambahkan toast notification di sini
-      console.log('NPSN copied:', npsn);
+      setCopiedNPSN(npsn);
+      setTimeout(() => setCopiedNPSN(null), 1500);
     } catch (err) {
       console.error('Failed to copy:', err);
     }
@@ -332,7 +417,10 @@ export default function DataTableClient({
   const handleExportCSV = useCallback(() => {
     const headers = table.getAllColumns()
       .filter(col => col.getIsVisible())
-      .map(col => col.columnDef.header)
+      .map(col => {
+        const header = col.columnDef.header;
+        return typeof header === 'string' ? header : col.id;
+      })
       .filter(Boolean) as string[];
     
     const rows = table.getFilteredRowModel().rows.map(row => 
@@ -344,7 +432,12 @@ export default function DataTableClient({
           if (col.id === 'status') {
             return cellValue === 'N' ? 'Negeri' : 'Swasta';
           }
-          return cellValue;
+          // Handle special characters for CSV
+          const value = String(cellValue || '');
+          if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+            return `"${value.replace(/"/g, '""')}"`;
+          }
+          return value;
         })
         .join(',')
     );
@@ -365,6 +458,7 @@ export default function DataTableClient({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }, [table]);
 
   // Toggle column visibility
@@ -404,8 +498,8 @@ export default function DataTableClient({
             
             {/* Kabupaten Filters */}
             {activeFilters.kabupaten.map(kab => (
-              <span key={kab} className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-blue-300 rounded-full text-xs text-blue-700">
-                {kab}
+              <span key={kab} className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-blue-300 rounded-full text-xs text-blue-700">
+                📍 {kab}
                 <button
                   onClick={() => {
                     if (onFilterChange) {
@@ -415,7 +509,8 @@ export default function DataTableClient({
                       });
                     }
                   }}
-                  className="text-blue-500 hover:text-blue-700"
+                  className="ml-1 text-blue-500 hover:text-blue-700"
+                  title="Hapus filter"
                 >
                   <X size={10} />
                 </button>
@@ -424,8 +519,8 @@ export default function DataTableClient({
             
             {/* Jenis Filters */}
             {activeFilters.jenis.map(jenis => (
-              <span key={jenis} className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-blue-300 rounded-full text-xs text-blue-700">
-                {jenis}
+              <span key={jenis} className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-blue-300 rounded-full text-xs text-blue-700">
+                🎓 {jenis}
                 <button
                   onClick={() => {
                     if (onFilterChange) {
@@ -435,7 +530,8 @@ export default function DataTableClient({
                       });
                     }
                   }}
-                  className="text-blue-500 hover:text-blue-700"
+                  className="ml-1 text-blue-500 hover:text-blue-700"
+                  title="Hapus filter"
                 >
                   <X size={10} />
                 </button>
@@ -444,8 +540,8 @@ export default function DataTableClient({
             
             {/* Status Filters */}
             {activeFilters.status.map(status => (
-              <span key={status} className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-blue-300 rounded-full text-xs text-blue-700">
-                {status === 'N' ? 'Negeri' : 'Swasta'}
+              <span key={status} className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-blue-300 rounded-full text-xs text-blue-700">
+                {status === 'N' ? '🏫 Negeri' : '🏢 Swasta'}
                 <button
                   onClick={() => {
                     if (onFilterChange) {
@@ -455,7 +551,8 @@ export default function DataTableClient({
                       });
                     }
                   }}
-                  className="text-blue-500 hover:text-blue-700"
+                  className="ml-1 text-blue-500 hover:text-blue-700"
+                  title="Hapus filter"
                 >
                   <X size={10} />
                 </button>
@@ -464,8 +561,8 @@ export default function DataTableClient({
             
             {/* Search Filter */}
             {activeFilters.searchQuery && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-blue-300 rounded-full text-xs text-blue-700">
-                Pencarian: "{activeFilters.searchQuery}"
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-white border border-blue-300 rounded-full text-xs text-blue-700">
+                🔍 "{activeFilters.searchQuery}"
                 <button
                   onClick={() => {
                     if (onFilterChange) {
@@ -473,7 +570,8 @@ export default function DataTableClient({
                     }
                     setGlobalFilter('');
                   }}
-                  className="text-blue-500 hover:text-blue-700"
+                  className="ml-1 text-blue-500 hover:text-blue-700"
+                  title="Hapus pencarian"
                 >
                   <X size={10} />
                 </button>
@@ -489,19 +587,23 @@ export default function DataTableClient({
                   }
                   setGlobalFilter('');
                 }}
-                className="ml-2 text-xs text-blue-600 hover:text-blue-800 font-medium"
+                className="ml-2 text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
               >
+                <X size={12} />
                 Hapus Semua Filter
               </button>
             )}
           </div>
           
           {/* Filter Summary */}
-          <div className="mt-2 text-xs text-blue-700">
-            Menampilkan {filteredCount.toLocaleString('id-ID')} dari {initialData.length.toLocaleString('id-ID')} data
+          <div className="mt-2 text-xs text-blue-700 flex items-center gap-3">
+            <span>
+              Menampilkan <strong>{filteredCount.toLocaleString('id-ID')}</strong> dari{' '}
+              <strong>{initialData.length.toLocaleString('id-ID')}</strong> data
+            </span>
             {filteredCount !== initialData.length && (
-              <span className="ml-2">
-                ({Math.round((filteredCount / initialData.length) * 100)}%)
+              <span className="px-2 py-0.5 bg-blue-100 rounded-full">
+                {Math.round((filteredCount / initialData.length) * 100)}% data terfilter
               </span>
             )}
           </div>
@@ -519,12 +621,12 @@ export default function DataTableClient({
               placeholder="Cari sekolah, alamat, atau kabupaten..."
               value={globalFilter ?? ''}
               onChange={e => handleSearchChange(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
             />
             {globalFilter && (
               <button
                 onClick={() => handleSearchChange('')}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
                 title="Hapus pencarian"
               >
                 <X size={16} />
@@ -536,30 +638,55 @@ export default function DataTableClient({
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
           {/* Column Visibility */}
-          <div className="relative group">
-            <button className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm">
+          <div className="relative">
+            <button className="flex items-center gap-2 px-3 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors">
               <Eye size={16} />
               Kolom
+              <ChevronDown size={14} />
             </button>
-            <div className="absolute right-0 mt-2 w-48 bg-white border rounded-lg shadow-lg z-50 hidden group-hover:block">
-              <div className="p-2 space-y-1">
+            
+            <div className="absolute right-0 mt-1 w-56 bg-white border rounded-lg shadow-lg z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+              <div className="p-2 space-y-1 max-h-64 overflow-y-auto">
+                <div className="px-2 py-1.5 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tampilkan Kolom
+                </div>
                 {table.getAllColumns()
                   .filter(column => column.getCanHide())
                   .map(column => (
-                    <label key={column.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                    <label
+                      key={column.id}
+                      className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                    >
                       <input
                         type="checkbox"
                         checked={column.getIsVisible()}
                         onChange={() => toggleColumnVisibility(column.id)}
-                        className="rounded"
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
-                      <span className="text-sm">
+                      <span className="text-sm text-gray-700 flex-1">
                         {typeof column.columnDef.header === 'string' 
                           ? column.columnDef.header 
                           : column.id}
                       </span>
+                      {column.getIsVisible() && (
+                        <Eye size={14} className="text-green-600" />
+                      )}
                     </label>
                   ))}
+                <div className="border-t pt-2">
+                  <button
+                    onClick={() => {
+                      table.getAllColumns().forEach(col => {
+                        if (col.getCanHide()) {
+                          table.setColumnVisibility(prev => ({ ...prev, [col.id]: true }));
+                        }
+                      });
+                    }}
+                    className="w-full text-left px-2 py-1.5 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded"
+                  >
+                    Tampilkan Semua
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -567,7 +694,7 @@ export default function DataTableClient({
           {/* Export Button */}
           <button
             onClick={handleExportCSV}
-            className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
           >
             <Download size={16} />
             Export CSV
@@ -576,35 +703,30 @@ export default function DataTableClient({
       </div>
 
       {/* Table Container */}
-      <div className="border rounded-lg overflow-hidden">
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-gray-50 border-b border-gray-200">
               {table.getHeaderGroups().map(headerGroup => (
                 <tr key={headerGroup.id}>
                   {headerGroup.headers.map(header => (
                     <th
                       key={header.id}
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider"
+                      className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
                       style={{ width: header.getSize() }}
                     >
                       {header.isPlaceholder ? null : (
                         <div
-                          {...{
-                            className: header.column.getCanSort()
-                              ? 'cursor-pointer select-none flex items-center gap-1'
-                              : '',
-                            onClick: header.column.getToggleSortingHandler(),
-                          }}
+                          className={`flex items-center gap-2 ${
+                            header.column.getCanSort() ? 'cursor-pointer select-none hover:text-gray-900' : ''
+                          }`}
+                          onClick={header.column.getToggleSortingHandler()}
                         >
                           {flexRender(
                             header.column.columnDef.header,
                             header.getContext()
                           )}
-                          {{
-                            asc: ' 🔼',
-                            desc: ' 🔽',
-                          }[header.column.getIsSorted() as string] ?? null}
+                          {renderSortIcon(header.column.id)}
                         </div>
                       )}
                     </th>
@@ -613,16 +735,18 @@ export default function DataTableClient({
               ))}
             </thead>
             
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-100">
               {table.getRowModel().rows.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length} className="px-4 py-12 text-center text-gray-500">
-                    <div className="flex flex-col items-center justify-center">
-                      <AlertCircle size={48} className="text-gray-300 mb-3" />
-                      <p className="text-lg font-medium text-gray-700">Tidak ada data ditemukan</p>
-                      <p className="text-sm text-gray-500 mt-1">
+                  <td colSpan={columns.length} className="px-4 py-12 text-center">
+                    <div className="flex flex-col items-center justify-center max-w-md mx-auto">
+                      <AlertCircle size={48} className="text-gray-300 mb-4" />
+                      <p className="text-lg font-medium text-gray-700 mb-2">
+                        Tidak ada data ditemukan
+                      </p>
+                      <p className="text-sm text-gray-500 mb-6 text-center">
                         {isFiltered 
-                          ? "Coba ubah filter atau kata kunci pencarian" 
+                          ? "Coba ubah filter atau kata kunci pencarian Anda" 
                           : "Data sedang dimuat atau tidak tersedia"}
                       </p>
                       {isFiltered && (
@@ -632,7 +756,7 @@ export default function DataTableClient({
                               onFilterChange({ kabupaten: [], jenis: [], status: [], searchQuery: '' });
                             }
                           }}
-                          className="mt-4 px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
                         >
                           Reset Semua Filter
                         </button>
@@ -641,24 +765,28 @@ export default function DataTableClient({
                   </td>
                 </tr>
               ) : (
-                table.getRowModel().rows.map(row => (
-                  <tr 
-                    key={row.id}
-                    className={`hover:bg-gray-50 transition-colors ${
-                      selectedRow === row.original.id ? 'bg-blue-50' : ''
-                    }`}
-                    onClick={() => handleRowClick(row.original)}
-                  >
-                    {row.getVisibleCells().map(cell => (
-                      <td
-                        key={cell.id}
-                        className="px-4 py-3 text-sm"
-                      >
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
-                  </tr>
-                ))
+                table.getRowModel().rows.map(row => {
+                  const sekolah = row.original;
+                  return (
+                    <tr 
+                      key={row.id}
+                      className={`hover:bg-gray-50 transition-colors cursor-pointer ${
+                        selectedRow === sekolah.npsn ? 'bg-blue-50' : ''
+                      }`}
+                      onClick={() => handleRowClick(sekolah)}
+                      title="Klik untuk lihat detail • Ctrl+Klik untuk tab baru"
+                    >
+                      {row.getVisibleCells().map(cell => (
+                        <td
+                          key={cell.id}
+                          className="px-4 py-3.5 text-sm"
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -666,7 +794,7 @@ export default function DataTableClient({
       </div>
 
       {/* Pagination */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4 pt-2">
         <div className="text-sm text-gray-600">
           Menampilkan{' '}
           <span className="font-medium">
@@ -684,33 +812,31 @@ export default function DataTableClient({
             {table.getFilteredRowModel().rows.length.toLocaleString('id-ID')}
           </span>{' '}
           data
-          {globalFilter && (
-            <span className="ml-2 text-blue-600">
-              (difilter dari {initialData.length.toLocaleString('id-ID')} total data)
-            </span>
-          )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           {/* Page Size Selector */}
-          <select
-            value={table.getState().pagination.pageSize}
-            onChange={e => table.setPageSize(Number(e.target.value))}
-            className="px-3 py-1.5 border border-gray-300 rounded text-sm"
-          >
-            {[10, 25, 50, 100].map(pageSize => (
-              <option key={pageSize} value={pageSize}>
-                {pageSize} per halaman
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">Tampilkan:</span>
+            <select
+              value={table.getState().pagination.pageSize}
+              onChange={e => table.setPageSize(Number(e.target.value))}
+              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            >
+              {[10, 25, 50, 100].map(pageSize => (
+                <option key={pageSize} value={pageSize}>
+                  {pageSize} per halaman
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Page Navigation */}
           <div className="flex items-center gap-1">
             <button
               onClick={() => table.setPageIndex(0)}
               disabled={!table.getCanPreviousPage()}
-              className="p-2 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               title="Halaman pertama"
             >
               <ChevronsLeft size={16} />
@@ -718,25 +844,26 @@ export default function DataTableClient({
             <button
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
-              className="p-2 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               title="Halaman sebelumnya"
             >
               <ChevronLeft size={16} />
             </button>
             
-            <div className="flex items-center gap-1 mx-2">
-              <span className="text-sm">
-                Halaman{' '}
-                <strong>{table.getState().pagination.pageIndex + 1}</strong>{' '}
-                dari{' '}
-                <strong>{table.getPageCount()}</strong>
+            <div className="flex items-center gap-2 mx-2">
+              <span className="text-sm font-medium">
+                Halaman {table.getState().pagination.pageIndex + 1}
+              </span>
+              <span className="text-gray-400">/</span>
+              <span className="text-sm text-gray-600">
+                {table.getPageCount()}
               </span>
             </div>
             
             <button
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
-              className="p-2 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               title="Halaman berikutnya"
             >
               <ChevronRight size={16} />
@@ -744,7 +871,7 @@ export default function DataTableClient({
             <button
               onClick={() => table.setPageIndex(table.getPageCount() - 1)}
               disabled={!table.getCanNextPage()}
-              className="p-2 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               title="Halaman terakhir"
             >
               <ChevronsRight size={16} />
@@ -753,20 +880,28 @@ export default function DataTableClient({
         </div>
       </div>
 
-      {/* Table Information */}
-      <div className="text-xs text-gray-500">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-1">
-            <div className="w-3 h-3 bg-blue-100 rounded"></div>
-            <span>Klik baris untuk lihat detail</span>
+      {/* Table Information Footer */}
+      <div className="pt-2 border-t border-gray-200">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-gray-500">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-blue-100 border border-blue-300 rounded"></div>
+              <span>Klik baris untuk lihat detail sekolah</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <ExternalLink size={12} className="text-blue-500" />
+              <span>Ctrl+Klik untuk buka di tab baru</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <MapPin size={12} className="text-blue-500" />
-            <span>Klik ikon peta untuk lihat lokasi</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Copy size={12} className="text-gray-500" />
-            <span>Klik ikon copy untuk salin NPSN</span>
+          
+          <div className="text-xs">
+            <span className="font-medium">Hotkeys:</span>
+            <span className="ml-2">
+              <kbd className="px-1.5 py-0.5 bg-gray-100 border border-gray-300 rounded text-xs">Ctrl</kbd>
+              <span className="mx-1">+</span>
+              <kbd className="px-1.5 py-0.5 bg-gray-100 border border-gray-300 rounded text-xs">Klik</kbd>
+              <span className="ml-2">= Buka detail di tab baru</span>
+            </span>
           </div>
         </div>
       </div>

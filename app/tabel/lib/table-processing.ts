@@ -1,32 +1,32 @@
-import { Sekolah } from '../types/sekolah';
+import { SekolahAPI, Sekolah } from '../types/sekolah';
 
-export function processTableData(rawData: any[]): Sekolah[] {
-  return rawData
-    .map(item => ({
-      id: item.id || generateId(),
-      sekolah: item.sekolah || 'Nama tidak tersedia',
-      bentuk: item.bentuk || 'Lainnya',
-      status: item.status || 'N',
-      alamat_jalan: item.alamat_jalan || '',
-      kabupaten_kota: (item.kabupaten_kota || '').trim(),
-      kecamatan: (item.kecamatan || '').trim(),
-      lintang: item.lintang,
-      bujur: item.bujur,
-      npsn: item.npsn || '',
-      kode_prop: item.kode_prop,
-      propinsi: item.propinsi,
-      kode_kab_kota: item.kode_kab_kota,
-      kode_kec: item.kode_kec
-    }))
-    .filter(item => item.sekolah && item.sekolah !== 'Nama tidak tersedia')
-    .sort((a, b) => {
-      if (a.kabupaten_kota !== b.kabupaten_kota) {
-        return a.kabupaten_kota.localeCompare(b.kabupaten_kota);
-      }
-      return a.sekolah.localeCompare(b.sekolah);
-    });
+export function processTableData(sekolahData: SekolahAPI[]): Sekolah[] {
+  return sekolahData.map(item => ({
+    sekolah: item.sekolah || '',
+    npsn: item.npsn || '',
+    bentuk: item.bentuk || '',
+    status: item.status || '',
+    alamat_jalan: item.alamat_jalan || '',
+    lintang: item.lintang || '0',
+    bujur: item.bujur || '0',
+    kecamatan: item.kecamatan || '',
+    kabupaten_kota: item.kabupaten_kota || '',
+    provinsi: item.propinsi || '', // Convert propinsi to provinsi
+  }));
 }
 
-function generateId(): string {
-  return Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+// Fungsi untuk mapping langsung dari API response
+export function mapAPIToSekolah(apiData: any): Sekolah {
+  return {
+    sekolah: apiData.sekolah || '',
+    npsn: apiData.npsn || '',
+    bentuk: apiData.bentuk || '',
+    status: apiData.status || '',
+    alamat_jalan: apiData.alamat_jalan || '',
+    lintang: apiData.lintang || '0',
+    bujur: apiData.bujur || '0',
+    kecamatan: apiData.kecamatan || '',
+    kabupaten_kota: apiData.kabupaten_kota || '',
+    provinsi: apiData.propinsi || '', // API menggunakan "propinsi"
+  };
 }

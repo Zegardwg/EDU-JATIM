@@ -24,7 +24,7 @@ export function exportToCSV(data: Sekolah[]): string {
     sekolah.kecamatan,
     sekolah.lintang,
     sekolah.bujur,
-    sekolah.propinsi
+    sekolah.provinsi
   ]);
 
   return [
