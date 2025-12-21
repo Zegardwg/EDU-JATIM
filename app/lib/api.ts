@@ -15,7 +15,7 @@ interface FetchAllOptions {
 export async function getAllSekolahData(options: FetchAllOptions = {}): Promise<any[]> {
   const {
     maxPages = 30, // Naikkan ke 50 halaman (50,000 data)
-    perPage = 1000,
+    perPage = 500,
     delayBetweenPages = 50 // Kurangi delay untuk lebih cepat
   } = options
 
