@@ -1,250 +1,121 @@
-"use client";
+"use client"
 
+import { useMemo } from "react"
 import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
   BarChart,
   Bar,
   XAxis,
   YAxis,
-  Tooltip,
-  Legend,
   CartesianGrid,
-  PieLabelRenderProps,
-} from "recharts";
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from "recharts"
 
-interface Sekolah {
-  bentuk: string;
-  status: string;
+interface School {
+  bentuk?: string
+  status?: string
 }
 
 interface QuickChartsProps {
-  data: Sekolah[];
+  data: School[]
 }
 
-interface PieDataItem {
-  name: string;
-  value: number;
-  percentage: string;
-  [key: string]: string | number;
-}
-
-interface BarDataItem {
-  jenis: string;
-  jumlah: number;
+const COLORS = {
+  bentuk: ["#10b981", "#14b8a6", "#22c55e", "#84cc16"],
+  status: ["#059669", "#0d9488", "#16a34a"],
 }
 
 export default function QuickCharts({ data }: QuickChartsProps) {
-  const computeChartData = () => {
-    if (data.length === 0) {
-      return { pie: [] as PieDataItem[], bar: [] as BarDataItem[] };
-    }
+  const bentukData = useMemo(() => {
+    const counts: Record<string, number> = {}
+    data.forEach((school) => {
+      const bentuk = school.bentuk || "Unknown"
+      counts[bentuk] = (counts[bentuk] || 0) + 1
+    })
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+  }, [data])
 
-    // Process data for pie chart
-    const bentukCount: Record<string, number> = {};
-    data.forEach((item) => {
-      const bentuk = item.bentuk || "Lainnya";
-      bentukCount[bentuk] = (bentukCount[bentuk] || 0) + 1;
-    });
-
-    // Get top 6 categories, group the rest as "Lainnya"
-    const sortedEntries = Object.entries(bentukCount).sort(
-      (a, b) => b[1] - a[1]
-    );
-
-    let pieChartData: Array<{ name: string; value: number }>;
-    if (sortedEntries.length > 6) {
-      const top5 = sortedEntries.slice(0, 5);
-      const othersCount = sortedEntries
-        .slice(5)
-        .reduce((sum, [, count]) => sum + count, 0);
-      pieChartData = [...top5.map(([name, value]) => ({ name, value }))];
-      if (othersCount > 0) {
-        pieChartData.push({ name: "Lainnya", value: othersCount });
-      }
-    } else {
-      pieChartData = sortedEntries.map(([name, value]) => ({ name, value }));
-    }
-
-    // Calculate percentages
-    const total = pieChartData.reduce((sum, item) => sum + item.value, 0);
-    const pieDataWithPercentage = pieChartData.map((item) => ({
-      ...item,
-      percentage: ((item.value / total) * 100).toFixed(1),
-    }));
-
-    // Process data for bar chart (status distribution)
-    const statusCount: Record<string, number> = {};
-    data.forEach((item) => {
-      const status = item.status === "N" ? "Negeri" : "Swasta";
-      statusCount[status] = (statusCount[status] || 0) + 1;
-    });
-
-    const barChartData = Object.entries(statusCount)
-      .map(([jenis, jumlah]) => ({ jenis, jumlah }))
-      .sort((a, b) => b.jumlah - a.jumlah);
-
-    return { pie: pieDataWithPercentage, bar: barChartData };
-  };
-
-  const chartData = computeChartData();
-
-  const PIE_COLORS = [
-    "#0088FE",
-    "#00C49F",
-    "#FFBB28",
-    "#FF8042",
-    "#8884D8",
-    "#82ca9d",
-    "#a4de6c",
-  ];
-  const BAR_COLORS = ["#3b82f6", "#10b981"];
-
-  const isLoading = data.length === 0;
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div className="h-64 animate-pulse">
-          <div className="h-full bg-gray-200 rounded"></div>
-        </div>
-        <div className="h-48 animate-pulse">
-          <div className="h-full bg-gray-200 rounded"></div>
-        </div>
-      </div>
-    );
-  }
-
-  // Custom label function for pie chart
-  const renderCustomizedLabel = (props: PieLabelRenderProps) => {
-    const { name } = props;
-    const percentage =
-      chartData.pie.find((item) => item.name === name)?.percentage || "0";
-    if (!name) return "";
-    return `${name}: ${percentage}%`;
-  };
-
-  // Custom tooltip formatter for pie chart
-  const pieTooltipFormatter = (
-    value: number | undefined,
-    name: string | undefined,
-    props: { payload?: PieDataItem }
-  ) => {
-    const percentage = props.payload?.percentage || "0";
-    const displayValue = value ?? 0;
-    return [
-      `${displayValue} sekolah (${percentage}%)`,
-      props.payload?.name || name || "",
-    ];
-  };
-
-  // Custom tooltip formatter for bar chart
-  const barTooltipFormatter = (value: number | undefined) => {
-    const displayValue = value ?? 0;
-    return [`${displayValue} sekolah`, "Jumlah"];
-  };
+  const statusData = useMemo(() => {
+    const counts: Record<string, number> = {}
+    data.forEach((school) => {
+      const status = school.status || "Unknown"
+      counts[status] = (counts[status] || 0) + 1
+    })
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+  }, [data])
 
   return (
-    <div className="space-y-8">
-      {/* Pie Chart with Data Table */}
+    <div className="grid md:grid-cols-2 gap-8">
+      {/* Bentuk Sekolah Bar Chart */}
       <div>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={chartData.pie}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={renderCustomizedLabel}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value">
-                {chartData.pie.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={PIE_COLORS[index % PIE_COLORS.length]}
-                  />
-                ))}
-              </Pie>
-              <Tooltip formatter={pieTooltipFormatter} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Data Table for Pie Chart */}
-        <div className="mt-4 overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b">
-                <th className="py-2 text-left text-gray-600 font-medium">
-                  Jenis Sekolah
-                </th>
-                <th className="py-2 text-left text-gray-600 font-medium">
-                  Jumlah
-                </th>
-                <th className="py-2 text-left text-gray-600 font-medium">
-                  Persentase
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {chartData.pie.map((item, index) => (
-                <tr key={index} className="border-b hover:bg-gray-50">
-                  <td className="py-2">
-                    <div className="flex items-center">
-                      <div
-                        className="w-3 h-3 rounded-full mr-2"
-                        style={
-                          {
-                            backgroundColor:
-                              PIE_COLORS[index % PIE_COLORS.length],
-                          } as React.CSSProperties
-                        }
-                      />
-                      {item.name}
-                    </div>
-                  </td>
-                  <td className="py-2">{item.value.toLocaleString("id-ID")}</td>
-                  <td className="py-2 font-medium">{item.percentage}%</td>
-                </tr>
+        <h4 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <div className="w-1 h-6 bg-emerald-500 rounded-full"></div>
+          Distribusi Jenis Sekolah
+        </h4>
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={bentukData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis dataKey="name" tick={{ fill: "#64748b", fontSize: 12 }} />
+            <YAxis tick={{ fill: "#64748b", fontSize: 12 }} />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "#ffffff",
+                border: "1px solid #d1fae5",
+                borderRadius: "12px",
+                boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+              }}
+            />
+            <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+              {bentukData.map((_, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS.bentuk[index % COLORS.bentuk.length]} />
               ))}
-            </tbody>
-          </table>
-        </div>
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
       </div>
 
-      {/* Bar Chart */}
+      {/* Status Sekolah Pie Chart */}
       <div>
-        <h4 className="text-lg font-medium text-gray-700 mb-4">
+        <h4 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+          <div className="w-1 h-6 bg-teal-500 rounded-full"></div>
           Distribusi Status Sekolah
         </h4>
-        <div className="h-48">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData.bar}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="jenis" />
-              <YAxis />
-              <Tooltip formatter={barTooltipFormatter} />
-              <Legend />
-              <Bar
-                dataKey="jumlah"
-                fill="#3b82f6"
-                radius={[4, 4, 0, 0]}
-                name="Jumlah Sekolah">
-                {chartData.bar.map((entry, index) => (
-                  <Cell
-                    key={`bar-cell-${index}`}
-                    fill={BAR_COLORS[index % BAR_COLORS.length]}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        <ResponsiveContainer width="100%" height={280}>
+          <PieChart>
+            <Pie
+              data={statusData}
+              cx="50%"
+              cy="50%"
+              labelLine={false}
+              label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
+              outerRadius={90}
+              fill="#8884d8"
+              dataKey="value"
+            >
+              {statusData.map((_, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS.status[index % COLORS.status.length]} />
+              ))}
+            </Pie>
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "#ffffff",
+                border: "1px solid #d1fae5",
+                borderRadius: "12px",
+                boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
+              }}
+            />
+            <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: "12px" }} />
+          </PieChart>
+        </ResponsiveContainer>
       </div>
     </div>
-  );
+  )
 }

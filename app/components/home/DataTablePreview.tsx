@@ -1,76 +1,48 @@
 'use client'
 
-interface Sekolah {
-  sekolah: string
-  bentuk: string
-  status: string
-  alamat_jalan: string
-  kabupaten_kota: string
+interface School {
+  sekolah?: string
+  kabupaten_kota?: string
+  bentuk?: string
+  status?: string
 }
 
 interface DataTablePreviewProps {
-  data: Sekolah[]
+  data: School[]
 }
 
 export default function DataTablePreview({ data }: DataTablePreviewProps) {
-  if (data.length === 0) {
-    return (
-      <div className="text-center py-8 text-gray-500">
-        Tidak ada data yang tersedia
-      </div>
-    )
-  }
-
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
-          <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Nama Sekolah
-            </th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Jenis
-            </th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Status
-            </th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Kabupaten
-            </th>
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b-2 border-emerald-200">
+            <th className="text-left p-3 font-bold text-slate-700">Nama Sekolah</th>
+            <th className="text-left p-3 font-bold text-slate-700">Kabupaten</th>
+            <th className="text-left p-3 font-bold text-slate-700">Jenis</th>
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
-          {data.map((item, index) => (
-            <tr key={index} className="hover:bg-gray-50">
-              <td className="px-4 py-3 text-sm text-gray-900">
-                <div className="font-medium">{item.sekolah}</div>
-                <div className="text-xs text-gray-500 truncate max-w-xs">
-                  {item.alamat_jalan}
-                </div>
-              </td>
-              <td className="px-4 py-3 text-sm">
-                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                  item.bentuk === 'SD' ? 'bg-blue-100 text-blue-800' :
-                  item.bentuk === 'SMP' ? 'bg-green-100 text-green-800' :
-                  item.bentuk === 'SMA' ? 'bg-purple-100 text-purple-800' :
-                  item.bentuk === 'SMK' ? 'bg-orange-100 text-orange-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
-                  {item.bentuk}
+        <tbody>
+          {data.map((school, index) => (
+            <tr key={index} className="border-b border-emerald-100 hover:bg-emerald-50/50 transition-colors">
+              <td className="p-3 text-slate-800 font-medium truncate max-w-xs">{school.sekolah || "N/A"}</td>
+              <td className="p-3 text-slate-600 truncate">{school.kabupaten_kota || "N/A"}</td>
+              <td className="p-3">
+                <span
+                  className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+                    school.bentuk === "SD"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : school.bentuk === "SMP"
+                        ? "bg-teal-100 text-teal-700"
+                        : school.bentuk === "SMA"
+                          ? "bg-green-100 text-green-700"
+                          : school.bentuk === "SMK"
+                            ? "bg-lime-100 text-lime-700"
+                            : "bg-slate-100 text-slate-700"
+                  }`}
+                >
+                  {school.bentuk || "N/A"}
                 </span>
-              </td>
-              <td className="px-4 py-3 text-sm">
-                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                  item.status === 'N' 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {item.status === 'N' ? 'Negeri' : 'Swasta'}
-                </span>
-              </td>
-              <td className="px-4 py-3 text-sm text-gray-700">
-                {item.kabupaten_kota?.trim() || '-'}
               </td>
             </tr>
           ))}
